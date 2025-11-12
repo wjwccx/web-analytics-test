@@ -1,0 +1,39 @@
+networks:
+  subnet:
+    driver: bridge
+    enable_ipv6: true # 宿主机可用[::1]:<port>来访问
+    ipam:
+      driver: default
+
+services:
+  app:
+#    container_name: ${APP_NAME}_srv    # 自定义名称会影响动态伸缩功能 --scale
+    image: ${APP_IMAGE}
+    build:
+        context: ./
+        dockerfile: Dockerfile
+        args:
+          BASE_IMAGE: ${BASE_IMAGE:-cddc/app:latest}
+          https_proxy: ${https_proxy:-} # 不建议设置敏感数据，会被记录到镜像构建历史中。建议多阶段构建来清楚构建历史
+          http_proxy: ${http_proxy:-}
+    restart: unless-stopped
+    hostname: docker-app
+    init: true
+    networks:
+      - subnet
+#    privileged: true
+#    user: ubuntu
+    environment:
+      - CONTAINER=docker
+    env_file:
+      - .env
+    logging:
+      driver: "local" # json-file/local/syslog/journald
+      options:
+        max-size: "10m"    # 单个文件最大尺寸
+        max-file: "3"      # 保留的文件数量
+    volumes:
+        - /etc/localtime:/etc/localtime:ro
+        - ./data/:/app/logs:rw
+    ports:
+       - ${OUTER_PORT}:8888
