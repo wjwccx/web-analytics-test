@@ -22,9 +22,6 @@ AUDIO_DIR = BASE_DIR / "data" / "workbook"
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
-AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-STATIC_DIR.mkdir(parents=True, exist_ok=True)
-
 
 app = FastAPI(title="KET Workbook Level 0")
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
@@ -59,9 +56,11 @@ CURRENCY_OPTIONS = [
 
 
 def _template_context(request: Request, **kwargs):
+    page_title = kwargs.pop("page_title", None)
     context = {
         "request": request,
         "site_title": "KET Workbook Level 0",
+        "page_title": page_title,
         "audio_groups": AUDIO_GROUPS,
         "currency_options": CURRENCY_OPTIONS,
     }
@@ -94,13 +93,11 @@ async def payment(
     notes: str = Form(default=""),
 ):
     logger.info(
-        "Received payment intent",
-        extra={
-            "customer_name": customer_name,
-            "currency": currency,
-            "amount": amount,
-            "email": email,
-        },
+        "Received payment intent | name=%s | email=%s | currency=%s | amount=%.2f",
+        customer_name or "(anonymous)",
+        email or "(not provided)",
+        currency,
+        amount,
     )
     if notes:
         logger.debug("Order notes: %s", notes)
