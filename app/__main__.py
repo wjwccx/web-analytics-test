@@ -128,9 +128,15 @@ def main():
     parser.add_argument("--host", default="0.0.0.0", help="Host address")
     parser.add_argument("--port", type=int, default=8080, help="Port number")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
+    parser.add_argument(
+        "--module-path",
+        default=None,
+        help="Dotted module path for the ASGI application (defaults to discovered path)",
+    )
     args = parser.parse_args()
 
-    module_path = f"{__package__}.{__name__}:app" if __package__ else f"{__name__}:app"
+    package_name = __package__ or Path(__file__).resolve().parent.name
+    module_path = args.module_path or f"{package_name}.__main__:app"
     log_level = os.getenv("LOG_LEVEL", "info").lower()
 
     logger.info(
