@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="section">
+    <h2 class="section-title">全部音频资源</h2>
+    <div class="player-wrapper">
+      <audio id="catalog-player" controls preload="none">
+        {% if first_audio %}
+          <source src="{{ url_for('audio', path=first_audio.relative_path) }}" type="audio/mpeg" />
+        {% endif %}
+        您的浏览器暂不支持音频播放。
+      </audio>
+    </div>
+
+    {% if audio_groups %}
+      {% for unit, items in audio_groups %}
+        <section class="unit-block">
+          <h3 class="unit-title">Unit {{ unit }}</h3>
+          <div class="audio-grid">
+            {% for audio in items %}
+              <button class="audio-tile" data-audio="{{ url_for('audio', path=audio.relative_path) }}">
+                {{ audio.display_name }}
+              </button>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    {% else %}
+      <p class="empty">暂未收录音频资源。</p>
+    {% endif %}
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const catalogPlayer = document.getElementById('catalog-player');
+    const catalogTiles = document.querySelectorAll('.audio-tile');
+    catalogTiles.forEach((tile) => {
+      tile.addEventListener('click', () => {
+        const src = tile.dataset.audio;
+        if (!src) return;
+        if (catalogPlayer.src !== src) {
+          catalogPlayer.src = src;
+        }
+        catalogPlayer.play();
+        catalogTiles.forEach((btn) => btn.classList.toggle('active', btn === tile));
+      });
+    });
+  </script>
+{% endblock %}
