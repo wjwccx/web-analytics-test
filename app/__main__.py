@@ -1,80 +1,154 @@
+from __future__ import annotations
+
 import argparse
 import logging
 import os
+from pathlib import Path
+from typing import List
 
-import sentry_sdk
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from app.audio import AudioResource, first_n, group_audio_by_unit, load_audio_resources
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """全局异常处理器 - 最佳实践机制
-    1. 统一错误处理：兜底捕获所有异常，向客户返回统一友好的错误响应格式
-    2. 防止敏感信息泄露：生产环境下，向客户屏蔽具体的错误堆栈等信息
-    3. 错误的监控和追踪：可以补充全面的上下文，并让 Sentry 自动捕获异常
-    """
-    logger.exception("Unhandled exception occurred", exc_info=exc)
-    # Sentry 会自动捕获异常，这里不需要额外处理
-    return HTMLResponse(content="Internal Server Error", status_code=500)
+BASE_DIR = Path(__file__).resolve().parent.parent
+AUDIO_DIR = BASE_DIR / "data" / "workbook"
+TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
-@app.get("/api/company_info/{stock_code}")
-async def company_info(stock_code: str):
-    logger.info(f"Fetching company info for stock code: {stock_code}")
-    try:
-        data = {"id":"00001"}
-        if not data:
-            logger.warning(f"No company info found for stock code: {stock_code}")
-            return {"status": "error", "message": "未找到相关公司信息"}
-        logger.debug(f"Successfully retrieved company info for {stock_code}")
-        return {"status": "success", "data": data}
-    except Exception as e:
-        logger.error(
-            f"Error fetching company info for {stock_code}: {str(e)}", exc_info=True
-        )
-        raise HTTPException(status_code=500, detail=str(e))
+app = FastAPI(title="KET Workbook Level 0")
+templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
+
+
+if AUDIO_DIR.exists():
+    logger.debug("Mounting audio directory at /audio: %s", AUDIO_DIR)
+    app.mount("/audio", StaticFiles(directory=str(AUDIO_DIR)), name="audio")
+else:
+    logger.warning("Audio directory not found at startup: %s", AUDIO_DIR)
+
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+ALL_AUDIO: List[AudioResource] = load_audio_resources(AUDIO_DIR)
+AUDIO_GROUPS = group_audio_by_unit(ALL_AUDIO)
+
+
+CURRENCY_OPTIONS = [
+    ("USD", "US Dollar"),
+    ("EUR", "Euro"),
+    ("GBP", "British Pound"),
+    ("JPY", "Japanese Yen"),
+    ("CNY", "Chinese Yuan"),
+    ("AUD", "Australian Dollar"),
+    ("CAD", "Canadian Dollar"),
+    ("CHF", "Swiss Franc"),
+    ("HKD", "Hong Kong Dollar"),
+    ("SGD", "Singapore Dollar"),
+]
+
+
+def _template_context(request: Request, **kwargs):
+    page_title = kwargs.pop("page_title", None)
+    context = {
+        "request": request,
+        "site_title": "KET Workbook Level 0",
+        "page_title": page_title,
+        "audio_groups": AUDIO_GROUPS,
+        "currency_options": CURRENCY_OPTIONS,
+    }
+    context.update(kwargs)
+    return context
+
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    featured_audio = first_n(ALL_AUDIO, 3)
+    first_audio = featured_audio[0] if featured_audio else None
+    return templates.TemplateResponse(
+        "home.html",
+        _template_context(
+            request,
+            page_title="首页",
+            featured_audio=featured_audio,
+            first_audio=first_audio,
+        ),
+    )
+
+
+@app.post("/payment")
+async def payment(
+    request: Request,
+    customer_name: str = Form(default=""),
+    currency: str = Form(default="USD"),
+    amount: float = Form(...),
+    email: str = Form(default=""),
+    notes: str = Form(default=""),
+):
+    logger.info(
+        "Received payment intent | name=%s | email=%s | currency=%s | amount=%.2f",
+        customer_name or "(anonymous)",
+        email or "(not provided)",
+        currency,
+        amount,
+    )
+    if notes:
+        logger.debug("Order notes: %s", notes)
+
+    return RedirectResponse(url=request.url_for("list_audio"), status_code=303)
+
+
+@app.get("/list", response_class=HTMLResponse, name="list_audio")
+async def list_audio(request: Request):
+    first_audio = ALL_AUDIO[0] if ALL_AUDIO else None
+    return templates.TemplateResponse(
+        "list.html",
+        _template_context(
+            request,
+            page_title="音频资源列表",
+            first_audio=first_audio,
+        ),
+    )
+
 
 @app.get("/ping")
 async def ping():
-    """测试接口"""
-    return {"ping": "pong"}
+    return {"status": "ok"}
 
 
-if __name__ == "__main__":
-    # 解析命令行参数
-    parser = argparse.ArgumentParser(description="Stock Data API Server")
+def main():
+    parser = argparse.ArgumentParser(description="KET Workbook Audio Service")
+    parser.add_argument("--host", default="0.0.0.0", help="Host address")
+    parser.add_argument("--port", type=int, default=8080, help="Port number")
+    parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
     parser.add_argument(
-        "--host",
-        type=str,
+        "--module-path",
         default=None,
-        help="Host address to bind to. Examples: "
-        "0.0.0.0/127.0.0.1 (IPv4), [::]/[::1] (IPv6). "
-        "Default: None (dual-stack, IPv4+IPv6)",
-    )
-    parser.add_argument(
-        "--port", type=int, default=8888, help="Port number (default: 8888)"
-    )
-    parser.add_argument(
-        "--reload", action="store_true", help="Reload on code changes (default: False)"
+        help="Dotted module path for the ASGI application (defaults to discovered path)",
     )
     args = parser.parse_args()
 
-    logger.info(f"Starting server on {args.host}:{args.port} (reload={args.reload})")
+    package_name = __package__ or Path(__file__).resolve().parent.name
+    module_path = args.module_path or f"{package_name}.__main__:app"
+    log_level = os.getenv("LOG_LEVEL", "info").lower()
 
-    module_path = f"{__package__}.{__name__}:app" if __package__ else f"{__name__}:app"
-    try:
-        uvicorn.run(
-            module_path,
-            host=args.host,
-            port=args.port,
-            reload=args.reload,
-            log_level=os.getenv("LOG_LEVEL", "info").lower(),
-        )
-    except Exception as e:
-        logger.critical(f"Failed to start server: {str(e)}", exc_info=True)
-        raise
+    logger.info(
+        "Starting KET Workbook service on %s:%d (reload=%s)",
+        args.host,
+        args.port,
+        args.reload,
+    )
+
+    uvicorn.run(module_path, host=args.host, port=args.port, reload=args.reload, log_level=log_level)
+
+
+if __name__ == "__main__":
+    main()
+
