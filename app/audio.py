@@ -59,7 +59,9 @@ def load_audio_resources(audio_dir: Path) -> List[AudioResource]:
         return []
 
     resources: list[AudioResource] = []
-    for file_path in sorted(audio_dir.rglob("*.mp3")):
+    for file_path in sorted(audio_dir.rglob("*")):
+        if not file_path.is_file() or file_path.suffix.lower() != ".mp3":
+            continue
         match = FILE_PATTERN.match(file_path.name)
         if not match:
             logger.debug("Skipping unexpected audio file pattern: %s", file_path.name)
