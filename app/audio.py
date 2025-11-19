@@ -31,7 +31,7 @@ class AudioResource:
     def display_name(self) -> str:
         """Human readable label displayed in the UI."""
 
-        return f"{self.unit}.{self.test_display}(p{self.page_display})"
+        return f"{self.unit}.{self.test_display}"
 
 
 def _unit_sort_key(unit: str) -> Tuple[int, int | str]:

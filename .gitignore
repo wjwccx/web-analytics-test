@@ -174,3 +174,7 @@ cython_debug/
 # VIM
 *.swp
 *.swap
+
+*.bak
+
+data/

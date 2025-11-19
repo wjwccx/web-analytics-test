@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% if page_title %}{{ page_title }} · {% endif %}{{ site_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}" />
-  </head>
+    <script defer src="https://umami.lmfml.com/script.js" data-website-id="{{ umami_website_id }}"></script>
+    <script defer src="https://rybbit.lmfml.com/api/script.js" data-site-id="{{ rybbit_website_id }}"></script>
+</head>
   <body>
     <header class="site-header">
       <div class="container">
@@ -24,7 +26,9 @@
     <footer class="site-footer">
       <div class="container">
         <p>
-          <a href="https://chatgpt.com/" target="_blank" rel="noopener">Powered by ChatGPT</a>
+          <a href="https://chatgpt.com/" target="_blank" rel="noopener" 
+            data-umami-event="outbound-link-click" data-umami-event-url="https://chatgpt.com/"
+          >Powered by ChatGPT</a>
         </p>
       </div>
     </footer>

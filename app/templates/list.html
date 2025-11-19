@@ -18,8 +18,10 @@
           <h3 class="unit-title">Unit {{ unit }}</h3>
           <div class="audio-grid">
             {% for audio in items %}
-              <button class="audio-tile" data-audio="{{ url_for('audio', path=audio.relative_path) }}">
-                {{ audio.display_name }}
+              <button class="audio-tile" 
+                data-src="audio/{{ audio.relative_path | urlencode }}"
+                data-name="{{ audio.display_name }}">
+                {{ audio.display_name }}(p{{ audio.page_display }})
               </button>
             {% endfor %}
           </div>
@@ -37,13 +39,20 @@
     const catalogTiles = document.querySelectorAll('.audio-tile');
     catalogTiles.forEach((tile) => {
       tile.addEventListener('click', () => {
-        const src = tile.dataset.audio;
+        const src = tile.dataset.src;
+        const name = tile.dataset.name || tile.textContent.trim();
         if (!src) return;
-        if (catalogPlayer.src !== src) {
+
+        const isSame = catalogPlayer.currentSrc && catalogPlayer.currentSrc.endsWith(src);
+        if (isSame) {
+          if (catalogPlayer.paused) catalogPlayer.play(); else catalogPlayer.pause();
+        } else {
           catalogPlayer.src = src;
+          catalogPlayer.play();
+          catalogTiles.forEach((btn) => btn.classList.toggle('active', btn === tile));
+          umami.track ('player-start', { src: src, name: name });
+          rybbit.event('player-start', { src: src, name: name });
         }
-        catalogPlayer.play();
-        catalogTiles.forEach((btn) => btn.classList.toggle('active', btn === tile));
       });
     });
   </script>

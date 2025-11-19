@@ -14,8 +14,10 @@
     <div class="audio-grid">
       {% if featured_audio %}
         {% for audio in featured_audio %}
-          <button class="audio-tile" data-audio="{{ url_for('audio', path=audio.relative_path) }}">
-            {{ audio.display_name }}
+          <button class="audio-tile" 
+            data-src="audio/{{ audio.relative_path | urlencode }}"
+            data-name="{{ audio.display_name }}">
+            {{ audio.display_name }}(p{{ audio.page_display }})
           </button>
         {% endfor %}
       {% else %}
@@ -26,7 +28,7 @@
 
   <section class="section">
     <h2 class="section-title">购买全部音频</h2>
-    <form class="order-form" action="{{ url_for('payment') }}" method="post">
+    <form class="order-form" action="{{ url_for('payment') }}" method="post" data-track-event="payment" >
       <div class="form-row">
         <label for="customer_name">联系人</label>
         <input type="text" id="customer_name" name="customer_name" placeholder="选填" />
@@ -44,9 +46,9 @@
         </select>
       </div>
       <div class="form-row">
-        <label for="amount">金额</label>
+        <label for="revenue">金额</label>
         <div class="input-prefix">
-          <input type="number" id="amount" name="amount" min="0" step="0.01" placeholder="例如 19.99" required />
+          <input type="number" id="revenue" name="revenue" min="0" step="0.01" placeholder="例如 19.99" required />
         </div>
       </div>
       <div class="form-row">
@@ -66,7 +68,8 @@
     const tiles = document.querySelectorAll('.audio-tile');
     tiles.forEach((tile) => {
       tile.addEventListener('click', () => {
-        const src = tile.dataset.audio;
+        const src = tile.dataset.src;
+        const name = tile.dataset.name || tile.textContent.trim();
         if (!src) return;
 
         const isSame = player.currentSrc && player.currentSrc.endsWith(src);
@@ -76,8 +79,12 @@
           player.src = src;
           player.play();
           tiles.forEach((btn) => btn.classList.toggle('active', btn === tile));
+          umami.track ('free-player-start', { src: src, name: name });
+          rybbit.event('free-player-start', { src: src, name: name });
         }
       });
     });
+
   </script>
+  <script src="/static/submit-with-track.js"></script>
 {% endblock %}

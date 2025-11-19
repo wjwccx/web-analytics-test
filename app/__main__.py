@@ -63,6 +63,8 @@ def _template_context(request: Request, **kwargs):
         "page_title": page_title,
         "audio_groups": AUDIO_GROUPS,
         "currency_options": CURRENCY_OPTIONS,
+        "umami_website_id": os.getenv("UMAMI_WEBSITE_ID", "028e0e39-63ba-4265-9e17-908ba7bfdcb5"),
+        "rybbit_website_id": os.getenv("RYBBIT_WEBSITE_ID", "05bc2740acb1"),
     }
     context.update(kwargs)
     return context
@@ -88,16 +90,16 @@ async def payment(
     request: Request,
     customer_name: str = Form(default=""),
     currency: str = Form(default="USD"),
-    amount: float = Form(...),
+    revenue: float = Form(...),
     email: str = Form(default=""),
     notes: str = Form(default=""),
 ):
     logger.info(
-        "Received payment intent | name=%s | email=%s | currency=%s | amount=%.2f",
+        "Received payment intent | name=%s | email=%s | currency=%s | revenue=%.2f",
         customer_name or "(anonymous)",
         email or "(not provided)",
         currency,
-        amount,
+        revenue,
     )
     if notes:
         logger.debug("Order notes: %s", notes)
