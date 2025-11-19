@@ -68,11 +68,15 @@
       tile.addEventListener('click', () => {
         const src = tile.dataset.audio;
         if (!src) return;
-        if (player.src !== src) {
+
+        const isSame = player.currentSrc && player.currentSrc.endsWith(src);
+        if (isSame) {
+          if (player.paused) player.play(); else player.pause();
+        } else {
           player.src = src;
+          player.play();
+          tiles.forEach((btn) => btn.classList.toggle('active', btn === tile));
         }
-        player.play();
-        tiles.forEach((btn) => btn.classList.toggle('active', btn === tile));
       });
     });
   </script>
