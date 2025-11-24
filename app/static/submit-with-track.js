@@ -95,9 +95,6 @@
       } else {
         payload[key] = value;
       }
-      if (key == 'revenue'){
-		payload[key] = 25.00; //Math.round(parseFloat(payload[key]) * 100) / 100;
-	  }
     }
     
     return payload;
@@ -213,7 +210,7 @@
           // 准备埋点上报数据
       	  const payload = getTrackingPayload(form);
           // 先上报埋点
-          //report_tracking_to_umami (eventName, payload);
+          report_tracking_to_umami (eventName, payload);
           report_tracking_to_rybbit(eventName, payload);
           // 再刷新页面
           return response_action(response);
